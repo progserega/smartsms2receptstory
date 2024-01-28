@@ -18,13 +18,13 @@ def get_exception_traceback_descr(e):
   else:
     return e
 
-def stroika(src,index):
+def fill_def(src,index):
     try:
         uniq_number=-1000000-index
         result={}
         result["document"]={}
         result["document"]["receipt"]={}
-        totalsum=abs(src["transactionAmount"]*100)
+        totalsum=int(abs(src["transactionAmount"]*100))
         dst=result["document"]["receipt"]
         dst["buyerAddress"]=""
         dst["cashTotalSum"]=totalsum
@@ -45,7 +45,7 @@ def stroika(src,index):
         dst["taxationType"]=0
         dst["totalSum"]=totalsum
         dst["user"]=""
-        dst["userInn"]="2dfc02f16"
+        #dst["userInn"]="2dfc02f16"
         dst["items"]=[]
         item={}
         if "note" in src and src["note"]!="":
@@ -59,6 +59,37 @@ def stroika(src,index):
         item["quantity"]=1
         item["sum"]=item["price"]*item["quantity"]
         dst["items"].append(item)
+        return result
+    except Exception as e:
+        print(get_exception_traceback_descr(e))
+        print("error with item:")
+        print(json.dumps(src, sort_keys=True,indent=4, separators=(',', ': '),ensure_ascii=False))
+        return None
+
+def bank(src,index):
+    try:
+        result = fill_def(src,index)
+        if result is None:
+            print("error with item:")
+            print(json.dumps(src, sort_keys=True,indent=4, separators=(',', ': '),ensure_ascii=False))
+            return None
+        result["document"]["receipt"]["items"][0]["name"]="Оплата кредита"
+        result["document"]["receipt"]["userInn"]="375ab372d"
+        return result
+    except Exception as e:
+        print(get_exception_traceback_descr(e))
+        print("error with item:")
+        print(json.dumps(src, sort_keys=True,indent=4, separators=(',', ': '),ensure_ascii=False))
+        return None
+
+def stroika(src,index):
+    try:
+        result = fill_def(src,index)
+        if result is None:
+            print("error with item:")
+            print(json.dumps(src, sort_keys=True,indent=4, separators=(',', ': '),ensure_ascii=False))
+            return None
+        result["document"]["receipt"]["userInn"]="2dfc02f16"
         return result
     except Exception as e:
         print(get_exception_traceback_descr(e))
@@ -88,6 +119,15 @@ def convert_data(in_data):
         # наличка:
         if src["operationType"]=="CASH_TRANSACTION": # and src["operationKind"]=="TRANSFER_OUT":
             ret=nalichnie(src,transaction_id)
+            if ret is not None and ret !={}:
+                index+=1
+                result.append(ret)
+        # Кредит:
+        if src["operationType"]=="ACCOUNT_TRANSACTION" and src["operationKind"]=="TRANSFER_OUT" and \
+                src["category"]=="Банк" and src["subcategory"]=="Кредит" and src["affectStatistics"]==False and \
+                (("tags" in src and not ("На закрытие кредита" in src["tags"] and "Витя" in src["tags"])) or \
+                "tags" not in src):
+            ret=bank(src,transaction_id)
             if ret is not None and ret !={}:
                 index+=1
                 result.append(ret)
